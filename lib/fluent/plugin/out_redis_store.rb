@@ -23,6 +23,7 @@ module Fluent
     config_param :value_expire, :integer, :default => -1
     config_param :value_length, :integer, :default => -1
     config_param :order,        :string,  :default => 'asc'
+    config_param :flush_interval, :time, :default => 1
 
     def initialize
       super
@@ -40,13 +41,6 @@ module Fluent
 
     def start
       super
-      if @path
-        @redis = Redis.new(:path => @path, :password => @password,
-                           :timeout => @timeout, :thread_safe => true, :db => @db)
-      else
-        @redis = Redis.new(:host => @host, :port => @port, :password => @password,
-                           :timeout => @timeout, :thread_safe => true, :db => @db)
-      end
     end
 
     def shutdown
@@ -58,6 +52,13 @@ module Fluent
     end
 
     def write(chunk)
+      if @path
+        @redis = Redis.new(:path => @path, :password => @password,
+                           :timeout => @timeout, :thread_safe => true, :db => @db)
+      else
+        @redis = Redis.new(:host => @host, :port => @port, :password => @password,
+                           :timeout => @timeout, :thread_safe => true, :db => @db)
+      end 
       @redis.pipelined {
         chunk.open { |io|
           begin
@@ -85,6 +86,8 @@ module Fluent
           end
         }
       }
+
+      @redis.quit
     end
 
     def operation_for_zset(record, time)
